@@ -2,18 +2,17 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
-import { authRouter } from './routes/authRoutes.js';
-import { requestRouter } from './routes/requestRoutes.js';
-import { documentRouter } from './routes/documentRoutes.js';
-import { adminRouter } from './routes/adminRoutes.js';
-import { notificationRouter } from './routes/notificationRoutes.js';
+import { authRouter } from './src/routes/authRoutes.js';
+import { requestRouter } from './src/routes/requestRoutes.js';
+import { documentRouter } from './src/routes/documentRoutes.js';
+import { adminRouter } from './src/routes/adminRoutes.js';
+import { notificationRouter } from './src/routes/notificationRoutes.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS
 app.use(
   cors({
     origin: '*',
@@ -35,7 +34,6 @@ app.use('/api/documents', documentRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/notifications', notificationRouter);
 
-// Base Health Check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
@@ -44,6 +42,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Academic Workflow Server running at http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Academic Workflow Server running at http://localhost:${PORT}`);
+  });
+}
+
+export default app;
