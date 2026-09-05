@@ -13,6 +13,7 @@ import {
   Layers,
   Award,
   Users,
+  User,
   Building,
   GraduationCap,
   FileCheck
