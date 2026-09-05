@@ -43,6 +43,30 @@ export const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const DEFAULT_DEPTS = [
+    {
+      id: 'cse-dept',
+      name: 'Computer Science and Engineering',
+      code: 'CSE',
+      courses: [{ id: 'cse-course', name: 'B.Tech in Computer Science and Engineering' }],
+      faculty: [{ id: 'fac-1', designation: 'Class Advisor', user: { name: 'Dr. Priya Sharma' } }]
+    },
+    {
+      id: 'it-dept',
+      name: 'Information Technology',
+      code: 'IT',
+      courses: [{ id: 'it-course', name: 'B.Tech in Information Technology' }],
+      faculty: [{ id: 'fac-2', designation: 'Assistant Professor', user: { name: 'Prof. Amit Verma' } }]
+    },
+    {
+      id: 'ece-dept',
+      name: 'Electronics and Communication Engineering',
+      code: 'ECE',
+      courses: [{ id: 'ece-course', name: 'B.Tech in Electronics & Communication' }],
+      faculty: []
+    }
+  ];
+
   useEffect(() => {
     fetchAcademicMeta();
   }, []);
@@ -50,8 +74,8 @@ export const RegisterPage: React.FC = () => {
   const fetchAcademicMeta = async () => {
     try {
       const res = await api.get('/auth/academic-meta');
-      setDepartments(res.data);
-      if (res.data.length > 0) {
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setDepartments(res.data);
         setDepartmentId(res.data[0].id);
         if (res.data[0].courses && res.data[0].courses.length > 0) {
           setCourseId(res.data[0].courses[0].id);
@@ -59,9 +83,16 @@ export const RegisterPage: React.FC = () => {
         if (res.data[0].faculty && res.data[0].faculty.length > 0) {
           setAdvisorId(res.data[0].faculty[0].id);
         }
+      } else {
+        setDepartments(DEFAULT_DEPTS);
+        setDepartmentId(DEFAULT_DEPTS[0].id);
+        setCourseId(DEFAULT_DEPTS[0].courses[0].id);
       }
     } catch (err) {
-      console.error('Failed to load academic metadata', err);
+      console.error('Failed to load academic metadata, using defaults', err);
+      setDepartments(DEFAULT_DEPTS);
+      setDepartmentId(DEFAULT_DEPTS[0].id);
+      setCourseId(DEFAULT_DEPTS[0].courses[0].id);
     }
   };
 
