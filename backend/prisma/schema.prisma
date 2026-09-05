@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  role          String         // STUDENT, FACULTY, HOD, OFFICE, ADMIN
+  status        String         @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  studentProfile Student?
+  facultyProfile Faculty?
+  approvals      ApprovalHistory[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  managedDepts   Department[]   @relation("DepartmentHOD")
+}
+
+model Department {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  code        String         @unique
+  description String?
+  hodId       String?
+  hod         User?          @relation("DepartmentHOD", fields: [hodId], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  students    Student[]
+  faculty     Faculty[]
+  courses     Course[]
+  requests    Request[]
+}
+
+model Course {
+  id           String      @id @default(uuid())
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name         String
+  code         String      @unique
+  durationYears Int        @default(4)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  students     Student[]
+}
+
+model Student {
+  id             String      @id @default(uuid())
+  userId         String      @unique
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentIdNumber String     @unique // e.g. STU2023001
+  departmentId   String
+  department     Department  @relation(fields: [departmentId], references: [id])
+  courseId       String
+  course         Course      @relation(fields: [courseId], references: [id])
+  currentYear    Int         @default(3)
+  currentSemester Int        @default(5)
+  academicBatch  String      // e.g. 2023-2027
+  phone          String?
+  advisorId      String?
+  advisor        Faculty?    @relation("AdvisorStudents", fields: [advisorId], references: [id])
+  cgpa           Float       @default(8.5)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  requests       Request[]
+}
+
+model Faculty {
+  id           String      @id @default(uuid())
+  userId       String      @unique
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facultyCode  String      @unique // e.g. FAC-CSE-01
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id])
+  designation  String      @default("Assistant Professor")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  advisedStudents Student[] @relation("AdvisorStudents")
+}
+
+model DocumentType {
+  id             String          @id @default(uuid())
+  code           String          @unique // BONAFIDE, TRANSCRIPT, RECOMMENDATION, COURSE_COMPLETION, NO_DUE, CONDUCT, STUDY, OTHER
+  name           String
+  description    String
+  estimatedDays  Int             @default(3)
+  icon           String          @default("FileText")
+  requiresUpload Boolean         @default(false)
+  uploadDocLabel String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  workflows      WorkflowStage[]
+  requests       Request[]
+}
+
+model WorkflowStage {
+  id             String       @id @default(uuid())
+  documentTypeId String
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  stageOrder     Int          // 1, 2, 3...
+  stageName      String       // Faculty Verification, HOD Approval, Academic Office Processing
+  roleRequired   String       // FACULTY, HOD, OFFICE, ADMIN
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([documentTypeId, stageOrder])
+}
+
+model Request {
+  id                 String               @id @default(uuid())
+  requestNumber      String               @unique // e.g. REQ-2026-0001
+  studentId          String
+  student            Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  departmentId       String
+  department         Department           @relation(fields: [departmentId], references: [id])
+  documentTypeId     String
+  documentType       DocumentType         @relation(fields: [documentTypeId], references: [id])
+  purpose            String
+  requiredDate       DateTime?
+  additionalRemarks  String?
+  status             String               @default("SUBMITTED") 
+  // SUBMITTED, UNDER_FACULTY_REVIEW, FACULTY_APPROVED, FACULTY_REJECTED, 
+  // UNDER_HOD_REVIEW, HOD_APPROVED, HOD_REJECTED, 
+  // UNDER_OFFICE_PROCESSING, DOCUMENT_GENERATED, READY_FOR_DOWNLOAD, COMPLETED, CORRECTION_REQUIRED, CANCELLED
+  currentStageOrder  Int                  @default(1)
+  assignedFacultyId  String?
+  rejectionReason    String?
+  correctionRemarks  String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  attachments        RequestAttachment[]
+  approvals          ApprovalHistory[]
+  generatedDocument  GeneratedDocument?
+  auditLogs          AuditLog[]
+}
+
+model RequestAttachment {
+  id           String      @id @default(uuid())
+  requestId    String
+  request      Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileOriginalName String
+  filePath     String
+  fileType     String
+  fileSize     Int
+  uploadedAt   DateTime    @default(now())
+}
+
+model ApprovalHistory {
+  id          String      @id @default(uuid())
+  requestId   String
+  request     Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverId  String
+  approver    User        @relation(fields: [approverId], references: [id])
+  stageOrder  Int
+  stageName   String
+  role        String
+  action      String      // APPROVED, REJECTED, CORRECTION_REQUESTED, RESUBMITTED, GENERATED, COMPLETED
+  remarks     String?
+  createdAt   DateTime    @default(now())
+}
+
+model GeneratedDocument {
+  id               String      @id @default(uuid())
+  requestId        String      @unique
+  request          Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  documentNumber   String      @unique // e.g. DOC-2026-000045
+  verificationCode String      @unique // e.g. VERIFY-793421
+  filePath         String
+  fileUrl          String
+  fileSize         Int?
+  generatedByRole  String      @default("OFFICE")
+  generatedAt      DateTime    @default(now())
+  downloadCount    Int         @default(0)
+  lastDownloadedAt DateTime?
+}
+
+model Notification {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  type        String      @default("INFO") // INFO, SUCCESS, WARNING, ERROR
+  link        String?
+  readStatus  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  requestId   String?
+  request     Request?    @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  action      String
+  ipAddress   String?
+  metadata    String?     // JSON string
+  createdAt   DateTime    @default(now())
+}
